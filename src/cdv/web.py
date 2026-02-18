@@ -37,9 +37,8 @@ class CDVRequestHandler(BaseHTTPRequestHandler):
             self._send_error(404, "Not found")
 
     def do_OPTIONS(self) -> None:
-        """Handle CORS preflight."""
+        """Handle CORS preflight (same-origin only)."""
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -60,7 +59,11 @@ class CDVRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_validate(self) -> None:
         # Read body
-        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            self._send_json_error(400, "Invalid Content-Length")
+            return
         if content_length > 1_000_000:  # 1MB limit
             self._send_json_error(400, "Request too large")
             return

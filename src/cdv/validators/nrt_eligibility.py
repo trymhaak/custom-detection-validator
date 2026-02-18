@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from cdv.parser.query_model import ParsedQuery
+from cdv.rules.columns import NON_SUPPORTED_NRT_COLUMNS
 from cdv.rules.tables import (
-    EMAILEVENTS_NRT_EXCLUDED_COLUMNS,
     NRT_SUPPORTED_SENTINEL,
     NRT_SUPPORTED_XDR,
     classify_table,
@@ -149,10 +149,11 @@ class NrtEligibilityValidator(BaseValidator):
             ))
 
         # NRT007: EmailEvents specific column exclusions
-        if table == "EmailEvents":
+        nrt_excluded = NON_SUPPORTED_NRT_COLUMNS.get(table, set())
+        if nrt_excluded:
             excluded_used = [
                 col for col in parsed.all_referenced_columns
-                if col in EMAILEVENTS_NRT_EXCLUDED_COLUMNS
+                if col in nrt_excluded
             ]
             if excluded_used:
                 results.append(ValidationResult(

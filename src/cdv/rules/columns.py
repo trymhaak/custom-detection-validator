@@ -68,10 +68,6 @@ EMAIL_ACTION_REQUIRED_COLUMNS: frozenset[str] = frozenset({
 })
 
 # ---------------------------------------------------------------------------
-# Action descriptions for output
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
 # Non-supported columns per table for custom detection rules (NRT)
 # Source: https://learn.microsoft.com/defender-xdr/custom-detection-rules
 #         https://learn.microsoft.com/defender-xdr/advanced-hunting-emailevents-table
@@ -217,34 +213,3 @@ ACTION_PERMISSIONS: dict[str, dict[str, str]] = {
     },
 }
 
-# ---------------------------------------------------------------------------
-# Action descriptions for output
-# ---------------------------------------------------------------------------
-
-ACTION_DESCRIPTIONS: dict[str, dict[str, str | set[str] | bool]] = {
-    "device": {
-        "name": "Device actions (isolate, scan, investigate, restrict, collect package)",
-        "columns": DEVICE_ACTION_COLUMNS,
-        "require_all": False,
-    },
-    "file": {
-        "name": "File actions (allow/block, quarantine)",
-        "columns": FILE_ACTION_COLUMNS,
-        "require_all": False,
-    },
-    "user_compromise": {
-        "name": "Mark user as compromised",
-        "columns": USER_COMPROMISE_COLUMNS,
-        "require_all": False,
-    },
-    "user_disable": {
-        "name": "Disable user / Force password reset",
-        "columns": USER_DISABLE_COLUMNS,
-        "require_all": False,
-    },
-    "email": {
-        "name": "Email actions (move to folder, delete)",
-        "columns": EMAIL_ACTION_REQUIRED_COLUMNS,
-        "require_all": True,  # ALL columns must be present
-    },
-}

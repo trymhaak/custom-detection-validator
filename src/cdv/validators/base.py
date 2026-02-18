@@ -72,7 +72,7 @@ class ValidationReport:
     def info_count(self) -> int:
         return sum(
             1 for r in self.results
-            if r.severity == Severity.INFO
+            if not r.passed and r.severity == Severity.INFO
         )
 
 

@@ -213,21 +213,6 @@ textarea::placeholder {
   border-color: var(--border-light);
 }
 
-.spinner {
-  display: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.loading .spinner { display: block; }
-.loading .btn-text { display: none; }
-
 /* ===== RESULTS ===== */
 #results {
   display: none;
@@ -523,7 +508,7 @@ textarea::placeholder {
   <div class="editor-wrapper">
     <div class="editor-label">
       KQL Query
-      <kbd>Ctrl+Enter</kbd> to validate
+      <kbd id="shortcut-label">Ctrl+Enter</kbd> to validate
     </div>
     <div class="editor-container">
       <div class="line-numbers" id="line-numbers"><div>1</div></div>
@@ -535,10 +520,7 @@ textarea::placeholder {
 
   <!-- Actions -->
   <div class="actions">
-    <button class="btn-validate" id="btn-validate" onclick="validate()">
-      <span class="btn-text">Validate</span>
-      <div class="spinner"></div>
-    </button>
+    <button class="btn-validate" id="btn-validate" onclick="validate()">Validate</button>
     <button class="btn-clear" onclick="clearAll()">Clear</button>
   </div>
 
@@ -696,8 +678,7 @@ const ACTION_PERMISSIONS = {
 
 const CATEGORY_DISPLAY_NAMES = {
   mde:'Microsoft Defender for Endpoint (Device*)', alert:'Alert',
-  observation:'Observation', other_xdr:'Defender XDR',
-  sentinel:'Microsoft Sentinel', unknown:'Unknown',
+  other_xdr:'Defender XDR', sentinel:'Microsoft Sentinel', unknown:'Unknown',
 };
 
 const KQL_TABULAR_OPERATORS = new Set(
@@ -726,9 +707,6 @@ function classifyTable(tableName) {
     }
     if (tableName.startsWith('Device')) {
       return { category:'mde', requiredTimestamp:'Timestamp', requiredEventIdColumns:['DeviceId','ReportId'], supportsNrt: NRT_SUPPORTED_XDR.has(tableName), supportsScheduled:true };
-    }
-    if (tableName.startsWith('Observation')) {
-      return { category:'observation', requiredTimestamp:'Timestamp', requiredEventIdColumns:['ObservationId'], supportsNrt: NRT_SUPPORTED_XDR.has(tableName), supportsScheduled:true };
     }
     return { category:'other_xdr', requiredTimestamp:'Timestamp', requiredEventIdColumns:['ReportId'], supportsNrt: NRT_SUPPORTED_XDR.has(tableName), supportsScheduled:true };
   }
@@ -1019,7 +997,7 @@ function parseColumnList(text) {
 }
 
 function isTableName(name) {
-  if (!name || name[0] >= 'a' && name[0] <= 'z') return false;
+  if (!name || (name[0] >= 'a' && name[0] <= 'z')) return false;
   if (KQL_KEYWORDS.has(name.toLowerCase())) return false;
   if (KQL_TABULAR_OPERATORS.has(name.toLowerCase())) return false;
   if (name.startsWith('__STR')) return false;
@@ -1422,6 +1400,9 @@ const resultsDiv = document.getElementById('results');
 
 // Set version on load
 document.getElementById('version-badge').textContent = 'v' + VERSION;
+if (navigator.platform && navigator.platform.indexOf('Mac') > -1) {
+  document.getElementById('shortcut-label').textContent = '\u2318+Enter';
+}
 
 function updateLineNumbers() {
   const lines = textarea.value.split('\n').length;

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class TableClassification:
-    category: str  # mde, alert, observation, email, identity, cloud, other_xdr, sentinel, unknown
+    category: str  # mde, alert, other_xdr, sentinel, unknown
     required_timestamp: str  # "Timestamp" or "TimeGenerated"
     required_event_id_columns: tuple[str, ...]  # additional columns beyond timestamp
     supports_nrt: bool
@@ -151,12 +151,6 @@ NRT_SUPPORTED_SENTINEL: set[str] = {
     "SigninLogs",
 }
 
-# EmailEvents NRT column exclusions
-EMAILEVENTS_NRT_EXCLUDED_COLUMNS: set[str] = {
-    "LatestDeliveryLocation",
-    "LatestDeliveryAction",
-}
-
 # ---------------------------------------------------------------------------
 # Known Sentinel tables (those without _CL suffix)
 # ---------------------------------------------------------------------------
@@ -260,14 +254,6 @@ def classify_table(table_name: str) -> TableClassification:
                 supports_nrt=table_name in NRT_SUPPORTED_XDR,
                 supports_scheduled=True,
             )
-        elif table_name.startswith("Observation"):
-            return TableClassification(
-                category="observation",
-                required_timestamp="Timestamp",
-                required_event_id_columns=("ObservationId",),
-                supports_nrt=table_name in NRT_SUPPORTED_XDR,
-                supports_scheduled=True,
-            )
         else:
             # All other XDR tables: Email*, Identity*, Cloud*, etc.
             return TableClassification(
@@ -293,7 +279,6 @@ def classify_table(table_name: str) -> TableClassification:
 CATEGORY_DISPLAY_NAMES: dict[str, str] = {
     "mde": "Microsoft Defender for Endpoint (Device*)",
     "alert": "Alert",
-    "observation": "Observation",
     "other_xdr": "Defender XDR",
     "sentinel": "Microsoft Sentinel",
     "unknown": "Unknown",

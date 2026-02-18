@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "custom-detection-validator"
-version = "0.1.0"
+version = "0.2.0"
 description = "Pre-validate KQL queries for Microsoft Defender XDR custom detection rules"
 requires-python = ">=3.9"
 license = {text = "MIT"}
