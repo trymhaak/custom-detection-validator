@@ -11,6 +11,7 @@ from cdv.rules.columns import (
     USER_COMPROMISE_COLUMNS,
     USER_DISABLE_COLUMNS,
     get_relevant_actions,
+    get_table_product,
 )
 from cdv.validators.base import (
     BaseValidator,
@@ -20,6 +21,28 @@ from cdv.validators.base import (
 )
 
 DOC_URL = "https://learn.microsoft.com/defender-xdr/custom-detection-rules#4-specify-actions"
+
+# ---------------------------------------------------------------------------
+# Table-aware column hints: which columns are realistically available
+# per product, so we can give specific suggestions instead of generic ones.
+# ---------------------------------------------------------------------------
+
+_PRODUCT_COLUMN_HINTS: dict[str, dict[str, list[str]]] = {
+    "mdo": {
+        "ACT003": ["RecipientObjectId"],
+    },
+    "mdi": {
+        "ACT003": ["AccountObjectId"],
+        "ACT004": ["AccountSid", "OnPremSid"],
+    },
+    "mda": {
+        "ACT003": ["AccountObjectId"],
+    },
+    "entra_id": {
+        "ACT003": ["AccountObjectId", "InitiatingProcessAccountObjectId"],
+        "ACT004": ["AccountSid", "InitiatingProcessAccountSid"],
+    },
+}
 
 
 def _permissions_note(rule_id: str) -> str:
@@ -50,6 +73,7 @@ class ActionColumnsValidator(BaseValidator):
 
         output_cols = self._get_output_columns(parsed)
         relevant = get_relevant_actions(parsed.primary_table)
+        product = get_table_product(parsed.primary_table)
 
         # ACT001: Device actions
         if "ACT001" in relevant:
@@ -59,6 +83,7 @@ class ActionColumnsValidator(BaseValidator):
                 DEVICE_ACTION_COLUMNS,
                 output_cols,
                 parsed.has_implicit_columns,
+                product,
             ))
 
         # ACT002: File actions
@@ -69,6 +94,7 @@ class ActionColumnsValidator(BaseValidator):
                 FILE_ACTION_COLUMNS,
                 output_cols,
                 parsed.has_implicit_columns,
+                product,
             )
             # Quarantine specifically also needs DeviceId alongside a hash
             if act002.passed and not parsed.has_implicit_columns:
@@ -96,6 +122,7 @@ class ActionColumnsValidator(BaseValidator):
                 USER_COMPROMISE_COLUMNS,
                 output_cols,
                 parsed.has_implicit_columns,
+                product,
             ))
 
         # ACT004: User disable / force reset
@@ -106,6 +133,7 @@ class ActionColumnsValidator(BaseValidator):
                 USER_DISABLE_COLUMNS,
                 output_cols,
                 parsed.has_implicit_columns,
+                product,
             ))
 
         # ACT005: Email actions (both columns required)
@@ -127,6 +155,7 @@ class ActionColumnsValidator(BaseValidator):
         required_columns: set[str] | frozenset[str],
         output_cols: set[str],
         implicit: bool,
+        product: str = "",
     ) -> ValidationResult:
         """Check if at least one of the required columns is present."""
         found = output_cols & required_columns
@@ -144,13 +173,23 @@ class ActionColumnsValidator(BaseValidator):
                 suggestion=_permissions_note(rule_id),
                 doc_url=_permissions_doc_url(rule_id),
             )
+
+        # Build a contextual suggestion based on the product
+        hint_cols = _PRODUCT_COLUMN_HINTS.get(product, {}).get(rule_id)
+        if hint_cols:
+            col_hint = " or ".join(sorted(hint_cols))
+            suggestion = f"Add {col_hint} to your query output to enable this action"
+        else:
+            col_hint = " or ".join(sorted(required_columns))
+            suggestion = f"To enable this action, include {col_hint} in your query output"
+
         return ValidationResult(
             passed=False,  # Not available — shown as info, not error
             severity=Severity.INFO,
             category=Category.ACTION_REQUIREMENTS,
             rule_id=rule_id,
             message=f"{action_name}: not available (needs {' or '.join(sorted(required_columns))})",
-            suggestion=f"To enable this action, include {' or '.join(sorted(required_columns))} in your query output",
+            suggestion=suggestion,
         )
 
     def _check_all(

@@ -1246,14 +1246,28 @@ function permissionsDocUrl(ruleId) {
   return p ? p.doc_url : '';
 }
 
-function checkAny(ruleId, actionName, requiredCols, outputCols, implicit) {
+// Table-aware column hints per product
+const PRODUCT_COLUMN_HINTS = {
+  mdo: { ACT003: ['RecipientObjectId'] },
+  mdi: { ACT003: ['AccountObjectId'], ACT004: ['AccountSid', 'OnPremSid'] },
+  mda: { ACT003: ['AccountObjectId'] },
+  entra_id: { ACT003: ['AccountObjectId', 'InitiatingProcessAccountObjectId'], ACT004: ['AccountSid', 'InitiatingProcessAccountSid'] },
+};
+
+function checkAny(ruleId, actionName, requiredCols, outputCols, implicit, product) {
   const found = setIntersect(outputCols, requiredCols);
   if (found.size > 0 || implicit) {
     const detail = implicit ? 'available (all columns returned implicitly)' : 'available (' + [...found].sort().join(', ') + ')';
     return result(true, 'info', 'action_requirements', ruleId, actionName + ': ' + detail, permissionsNote(ruleId), permissionsDocUrl(ruleId));
   }
-  return result(false, 'info', 'action_requirements', ruleId, actionName + ': not available (needs ' + [...requiredCols].sort().join(' or ') + ')',
-    'To enable this action, include ' + [...requiredCols].sort().join(' or ') + ' in your query output');
+  const hints = (PRODUCT_COLUMN_HINTS[product] || {})[ruleId];
+  let suggestion;
+  if (hints) {
+    suggestion = 'Add ' + hints.sort().join(' or ') + ' to your query output to enable this action';
+  } else {
+    suggestion = 'To enable this action, include ' + [...requiredCols].sort().join(' or ') + ' in your query output';
+  }
+  return result(false, 'info', 'action_requirements', ruleId, actionName + ': not available (needs ' + [...requiredCols].sort().join(' or ') + ')', suggestion);
 }
 
 function checkAll(ruleId, actionName, requiredCols, outputCols, implicit) {
@@ -1273,13 +1287,14 @@ function validateActionColumns(parsed) {
   if (!parsed.primaryTable) return results;
   const outputCols = getOutputColumns(parsed);
   const relevant = getRelevantActions(parsed.primaryTable);
+  const product = getTableProduct(parsed.primaryTable);
 
   if (relevant.has('ACT001')) {
-    results.push(checkAny('ACT001', 'Device actions (isolate, scan, investigate, restrict, collect package)', DEVICE_ACTION_COLUMNS, outputCols, parsed.hasImplicitColumns));
+    results.push(checkAny('ACT001', 'Device actions (isolate, scan, investigate, restrict, collect package)', DEVICE_ACTION_COLUMNS, outputCols, parsed.hasImplicitColumns, product));
   }
 
   if (relevant.has('ACT002')) {
-    let act002 = checkAny('ACT002', 'File actions (allow/block, quarantine)', FILE_ACTION_COLUMNS, outputCols, parsed.hasImplicitColumns);
+    let act002 = checkAny('ACT002', 'File actions (allow/block, quarantine)', FILE_ACTION_COLUMNS, outputCols, parsed.hasImplicitColumns, product);
     // Quarantine hint
     if (act002.passed && !parsed.hasImplicitColumns && !outputCols.has('DeviceId')) {
       act002 = result(act002.passed, act002.severity, act002.category, act002.rule_id, act002.message,
@@ -1289,11 +1304,11 @@ function validateActionColumns(parsed) {
   }
 
   if (relevant.has('ACT003')) {
-    results.push(checkAny('ACT003', 'Mark user as compromised', USER_COMPROMISE_COLUMNS, outputCols, parsed.hasImplicitColumns));
+    results.push(checkAny('ACT003', 'Mark user as compromised', USER_COMPROMISE_COLUMNS, outputCols, parsed.hasImplicitColumns, product));
   }
 
   if (relevant.has('ACT004')) {
-    results.push(checkAny('ACT004', 'Disable user / Force password reset', USER_DISABLE_COLUMNS, outputCols, parsed.hasImplicitColumns));
+    results.push(checkAny('ACT004', 'Disable user / Force password reset', USER_DISABLE_COLUMNS, outputCols, parsed.hasImplicitColumns, product));
   }
 
   if (relevant.has('ACT005')) {
