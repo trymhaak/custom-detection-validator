@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Detection Validator</title>
+<style>
+/* ===== RESET & VARIABLES ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary:    #0d1117;
+  --bg-secondary:  #161b22;
+  --bg-tertiary:   #1c2128;
+  --bg-input:      #1e1e1e;
+  --bg-hover:      #1f2937;
+  --text-primary:  #e6edf3;
+  --text-secondary:#8b949e;
+  --text-dim:      #6e7681;
+  --accent:        #58a6ff;
+  --accent-hover:  #79b8ff;
+  --success:       #3fb950;
+  --success-bg:    rgba(63, 185, 80, 0.1);
+  --error:         #f85149;
+  --error-bg:      rgba(248, 81, 73, 0.1);
+  --warning:       #d29922;
+  --warning-bg:    rgba(210, 153, 34, 0.1);
+  --info:          #58a6ff;
+  --info-bg:       rgba(88, 166, 255, 0.08);
+  --border:        #30363d;
+  --border-light:  #3d444d;
+  --font-mono:     'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  --font-sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --radius:        8px;
+  --radius-sm:     4px;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ===== LAYOUT ===== */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+/* ===== HEADER ===== */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--accent), #a371f7);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.header .version {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+/* ===== EDITOR ===== */
+.editor-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.editor-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-label kbd {
+  font-size: 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--font-sans);
+  color: var(--text-dim);
+}
+
+.editor-container {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.editor-container:focus-within {
+  border-color: var(--accent);
+}
+
+.line-numbers {
+  background: #161b22;
+  padding: 12px 0;
+  min-width: 44px;
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+.line-numbers div {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  padding: 0 10px 0 6px;
+  color: var(--text-dim);
+}
+
+textarea {
+  flex: 1;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  padding: 12px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  min-height: 220px;
+  tab-size: 4;
+}
+
+textarea::placeholder {
+  color: var(--text-dim);
+}
+
+/* ===== ACTIONS ===== */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.btn-validate {
+  background: linear-gradient(135deg, #238636, #2ea043);
+  color: #fff;
+  border: none;
+  padding: 10px 28px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-validate:hover {
+  background: linear-gradient(135deg, #2ea043, #3fb950);
+}
+
+.btn-validate:active {
+  transform: scale(0.97);
+}
+
+.btn-validate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-clear {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-clear:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.spinner {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading .spinner { display: block; }
+.loading .btn-text { display: none; }
+
+/* ===== RESULTS ===== */
+#results {
+  display: none;
+}
+
+#results.visible {
+  display: block;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Summary banner */
+.summary-banner {
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.summary-banner.pass {
+  background: var(--success-bg);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  color: var(--success);
+}
+
+.summary-banner.fail {
+  background: var(--error-bg);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--error);
+}
+
+.summary-banner.warn {
+  background: var(--warning-bg);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  color: var(--warning);
+}
+
+.summary-banner .icon { font-size: 18px; }
+
+/* NRT + Query info row */
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.nrt-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.nrt-badge.eligible {
+  background: var(--success-bg);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  color: var(--success);
+}
+
+.nrt-badge.ineligible {
+  background: var(--error-bg);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--error);
+}
+
+.query-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.query-info strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Category sections */
+.category-section {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.category-section summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+  user-select: none;
+  transition: background 0.1s;
+}
+
+.category-section summary:hover {
+  background: var(--bg-hover);
+}
+
+.category-section summary::-webkit-details-marker { display: none; }
+
+.category-section summary::before {
+  content: '▶';
+  font-size: 10px;
+  color: var(--text-dim);
+  transition: transform 0.15s;
+}
+
+.category-section[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.category-icon {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
+}
+
+.category-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.category-badge.all-pass {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.category-badge.has-fail {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.category-badge.has-warn {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.category-content {
+  padding: 6px 0;
+}
+
+/* Rule rows */
+.rule-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 16px 8px 20px;
+  transition: background 0.1s;
+}
+
+.rule-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.rule-status {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rule-status.pass { color: var(--success); }
+.rule-status.fail { color: var(--error); }
+.rule-status.warn { color: var(--warning); }
+.rule-status.info { color: var(--info); }
+.rule-status.unavailable { color: var(--text-dim); }
+
+.rule-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rule-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.rule-message {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.rule-suggestion {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  padding-left: 2px;
+}
+
+.rule-permissions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 5px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  border-left: 2px solid var(--accent);
+  font-size: 12px;
+}
+
+.rule-permissions .perm-item {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.rule-permissions .perm-label {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rule-permissions .perm-value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.rule-docs {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  flex-shrink: 0;
+  margin-top: 2px;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+}
+
+.rule-docs:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Error display */
+.error-display {
+  background: var(--error-bg);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--error);
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+/* Footer */
+.footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">🛡</div>
+    <h1>Custom Detection Validator</h1>
+    <span class="version" id="version-badge">v-</span>
+  </div>
+
+  <!-- Editor -->
+  <div class="editor-wrapper">
+    <div class="editor-label">
+      KQL Query
+      <kbd>Ctrl+Enter</kbd> to validate
+    </div>
+    <div class="editor-container">
+      <div class="line-numbers" id="line-numbers"><div>1</div></div>
+      <textarea id="query-input" placeholder="DeviceProcessEvents
+| where ActionType == 'ProcessCreated'
+| project Timestamp, DeviceId, ReportId, FileName" spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-validate" id="btn-validate" onclick="validate()">
+      <span class="btn-text">Validate</span>
+      <div class="spinner"></div>
+    </button>
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Bound to 127.0.0.1 (local only) · No data sent externally
+  </div>
+</div>
+
+<script>
+// ===== CONSTANTS =====
+const CATEGORY_ORDER = [
+  { key: 'table', name: 'Table', icon: '📋' },
+  { key: 'required_columns', name: 'Required Columns', icon: '📊' },
+  { key: 'non_supported_columns', name: 'Non-Supported Columns', icon: '🚫' },
+  { key: 'nrt_eligibility', name: 'NRT Eligibility', icon: '⚡' },
+  { key: 'action_requirements', name: 'Available Actions', icon: '🔧' },
+  { key: 'best_practices', name: 'Best Practices', icon: '💡' },
+];
+
+const STATUS_ICONS = {
+  pass: '✓',
+  error: '✗',
+  warning: '⚠',
+  info: 'ℹ',
+};
+
+// ===== ELEMENTS =====
+const textarea = document.getElementById('query-input');
+const lineNumbers = document.getElementById('line-numbers');
+const btnValidate = document.getElementById('btn-validate');
+const resultsDiv = document.getElementById('results');
+
+// ===== LINE NUMBERS =====
+function updateLineNumbers() {
+  const lines = textarea.value.split('\n').length;
+  lineNumbers.innerHTML = Array.from({ length: lines }, (_, i) =>
+    `<div>${i + 1}</div>`
+  ).join('');
+}
+
+function syncScroll() {
+  lineNumbers.scrollTop = textarea.scrollTop;
+}
+
+textarea.addEventListener('input', updateLineNumbers);
+textarea.addEventListener('scroll', syncScroll);
+updateLineNumbers();
+
+// ===== KEYBOARD SHORTCUTS =====
+textarea.addEventListener('keydown', (e) => {
+  // Ctrl/Cmd + Enter → validate
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    validate();
+    return;
+  }
+
+  // Tab → insert spaces
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const val = textarea.value;
+    textarea.value = val.substring(0, start) + '    ' + val.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + 4;
+    updateLineNumbers();
+  }
+});
+
+// ===== VALIDATE =====
+async function validate() {
+  const query = textarea.value.trim();
+  if (!query) {
+    textarea.focus();
+    return;
+  }
+
+  // Loading state
+  btnValidate.classList.add('loading');
+  btnValidate.disabled = true;
+
+  try {
+    const resp = await fetch('/api/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+
+    const data = await resp.json();
+
+    if (data.error) {
+      showError(data.error);
+      return;
+    }
+
+    renderResults(data);
+  } catch (err) {
+    showError('Connection failed. Is the server running?');
+  } finally {
+    btnValidate.classList.remove('loading');
+    btnValidate.disabled = false;
+  }
+}
+
+// ===== RENDER RESULTS =====
+function renderResults(data) {
+  // Update version badge
+  if (data.version) {
+    document.getElementById('version-badge').textContent = 'v' + data.version;
+  }
+
+  const s = data.summary;
+  let html = '';
+
+  // Summary banner
+  if (s.errors > 0) {
+    html += `<div class="summary-banner fail">
+      <span class="icon">✗</span>
+      ${s.errors} error${s.errors !== 1 ? 's' : ''}, ${s.warnings} warning${s.warnings !== 1 ? 's' : ''}
+    </div>`;
+  } else if (s.warnings > 0) {
+    html += `<div class="summary-banner warn">
+      <span class="icon">⚠</span>
+      0 errors, ${s.warnings} warning${s.warnings !== 1 ? 's' : ''}
+    </div>`;
+  } else {
+    html += `<div class="summary-banner pass">
+      <span class="icon">✓</span>
+      All checks passed
+    </div>`;
+  }
+
+  // Meta row: NRT badge + query info
+  html += '<div class="meta-row">';
+
+  if (s.nrt_eligible) {
+    html += '<span class="nrt-badge eligible">⚡ NRT Eligible</span>';
+  } else {
+    html += '<span class="nrt-badge ineligible">⚡ NRT Not Eligible</span>';
+  }
+
+  if (data.primary_table) {
+    html += `<span class="query-info"><strong>Table:</strong> ${esc(data.primary_table)}`;
+    if (data.source_tables && data.source_tables.length > 1) {
+      const others = data.source_tables.slice(1).map(esc).join(', ');
+      html += ` + ${others}`;
+    }
+    html += '</span>';
+  }
+
+  if (data.projected_columns && data.projected_columns.length > 0) {
+    const cols = data.projected_columns.slice(0, 6).map(esc).join(', ');
+    const more = data.projected_columns.length > 6
+      ? ` +${data.projected_columns.length - 6} more`
+      : '';
+    html += `<span class="query-info"><strong>Columns:</strong> ${cols}${more}</span>`;
+  } else if (data.implicit_columns) {
+    html += '<span class="query-info"><strong>Columns:</strong> all (implicit)</span>';
+  }
+
+  html += '</div>';
+
+  // Group results by category
+  const grouped = {};
+  for (const r of data.results) {
+    if (!grouped[r.category]) grouped[r.category] = [];
+    grouped[r.category].push(r);
+  }
+
+  // Render each category
+  for (const cat of CATEGORY_ORDER) {
+    const items = grouped[cat.key];
+    if (!items || items.length === 0) continue;
+
+    const failCount = items.filter(r => !r.passed && r.severity === 'error').length;
+    const warnCount = items.filter(r => !r.passed && r.severity === 'warning').length;
+    const unavailCount = items.filter(r => !r.passed && r.severity === 'info').length;
+    const passCount = items.filter(r => r.passed).length;
+    const hasFailures = failCount > 0 || warnCount > 0;
+    const openAttr = hasFailures ? ' open' : '';
+
+    // Badge
+    let badgeClass, badgeText;
+    if (failCount > 0) {
+      badgeClass = 'has-fail';
+      badgeText = `${failCount} error${failCount !== 1 ? 's' : ''}`;
+      if (warnCount > 0) badgeText += `, ${warnCount} warn`;
+    } else if (warnCount > 0) {
+      badgeClass = 'has-warn';
+      badgeText = `${warnCount} warning${warnCount !== 1 ? 's' : ''}`;
+    } else if (unavailCount > 0 && passCount > 0) {
+      badgeClass = 'all-pass';
+      badgeText = `${passCount} available`;
+    } else if (unavailCount > 0 && passCount === 0) {
+      badgeClass = 'all-pass';
+      badgeText = 'none available';
+    } else {
+      badgeClass = 'all-pass';
+      badgeText = 'all pass';
+    }
+
+    html += `<details class="category-section"${openAttr}>
+      <summary>
+        <span class="category-icon">${cat.icon}</span>
+        ${cat.name}
+        <span class="category-badge ${badgeClass}">${badgeText}</span>
+      </summary>
+      <div class="category-content">`;
+
+    for (const r of items) {
+      let statusClass, statusIcon;
+      if (r.passed) {
+        statusClass = 'pass';
+        statusIcon = STATUS_ICONS.pass;
+      } else if (r.severity === 'error') {
+        statusClass = 'fail';
+        statusIcon = STATUS_ICONS.error;
+      } else if (r.severity === 'warning') {
+        statusClass = 'warn';
+        statusIcon = STATUS_ICONS.warning;
+      } else if (r.severity === 'info' && !r.passed) {
+        statusClass = 'unavailable';
+        statusIcon = '–';
+      } else {
+        statusClass = 'info';
+        statusIcon = STATUS_ICONS.info;
+      }
+
+      html += `<div class="rule-row">
+        <span class="rule-status ${statusClass}">${statusIcon}</span>
+        <span class="rule-id">${esc(r.rule_id)}</span>
+        <div class="rule-body">
+          <div class="rule-message">${esc(r.message)}</div>`;
+
+      if (r.suggestion) {
+        const lines = r.suggestion.split('\n');
+        if (lines.length > 1 && lines[0].includes(':')) {
+          // Structured permission info — render as key/value pairs
+          html += '<div class="rule-permissions">';
+          for (const line of lines) {
+            const idx = line.indexOf(':');
+            if (idx > -1) {
+              const label = line.substring(0, idx + 1);
+              const value = line.substring(idx + 1).trim();
+              html += `<span class="perm-item"><span class="perm-label">${esc(label)}</span> <span class="perm-value">${esc(value)}</span></span>`;
+            }
+          }
+          html += '</div>';
+        } else {
+          html += `<div class="rule-suggestion">${esc(r.suggestion)}</div>`;
+        }
+      }
+
+      html += '</div>';
+
+      if (r.doc_url) {
+        html += `<a class="rule-docs" href="${esc(r.doc_url)}" target="_blank" rel="noopener">Docs ↗</a>`;
+      }
+
+      html += '</div>';
+    }
+
+    html += '</div></details>';
+  }
+
+  resultsDiv.innerHTML = html;
+  resultsDiv.classList.add('visible');
+}
+
+function showError(message) {
+  resultsDiv.innerHTML = `<div class="error-display">⚠ ${esc(message)}</div>`;
+  resultsDiv.classList.add('visible');
+}
+
+// ===== CLEAR =====
+function clearAll() {
+  textarea.value = '';
+  updateLineNumbers();
+  resultsDiv.innerHTML = '';
+  resultsDiv.classList.remove('visible');
+  textarea.focus();
+}
+
+// ===== HELPERS =====
+function esc(str) {
+  const el = document.createElement('span');
+  el.textContent = str;
+  return el.innerHTML;
+}
+</script>
+</body>
+</html>

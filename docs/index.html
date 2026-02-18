@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Detection Validator</title>
+<style>
+/* ===== RESET & VARIABLES ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary:    #0d1117;
+  --bg-secondary:  #161b22;
+  --bg-tertiary:   #1c2128;
+  --bg-input:      #1e1e1e;
+  --bg-hover:      #1f2937;
+  --text-primary:  #e6edf3;
+  --text-secondary:#8b949e;
+  --text-dim:      #6e7681;
+  --accent:        #58a6ff;
+  --accent-hover:  #79b8ff;
+  --success:       #3fb950;
+  --success-bg:    rgba(63, 185, 80, 0.1);
+  --error:         #f85149;
+  --error-bg:      rgba(248, 81, 73, 0.1);
+  --warning:       #d29922;
+  --warning-bg:    rgba(210, 153, 34, 0.1);
+  --info:          #58a6ff;
+  --info-bg:       rgba(88, 166, 255, 0.08);
+  --border:        #30363d;
+  --border-light:  #3d444d;
+  --font-mono:     'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  --font-sans:     -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --radius:        8px;
+  --radius-sm:     4px;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ===== LAYOUT ===== */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+/* ===== HEADER ===== */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--accent), #a371f7);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.header .version {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+/* ===== EDITOR ===== */
+.editor-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.editor-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-label kbd {
+  font-size: 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--font-sans);
+  color: var(--text-dim);
+}
+
+.editor-container {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.editor-container:focus-within {
+  border-color: var(--accent);
+}
+
+.line-numbers {
+  background: #161b22;
+  padding: 12px 0;
+  min-width: 44px;
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+.line-numbers div {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  padding: 0 10px 0 6px;
+  color: var(--text-dim);
+}
+
+textarea {
+  flex: 1;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  padding: 12px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  min-height: 220px;
+  tab-size: 4;
+}
+
+textarea::placeholder {
+  color: var(--text-dim);
+}
+
+/* ===== ACTIONS ===== */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.btn-validate {
+  background: linear-gradient(135deg, #238636, #2ea043);
+  color: #fff;
+  border: none;
+  padding: 10px 28px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-validate:hover {
+  background: linear-gradient(135deg, #2ea043, #3fb950);
+}
+
+.btn-validate:active {
+  transform: scale(0.97);
+}
+
+.btn-validate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-clear {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-clear:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.spinner {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading .spinner { display: block; }
+.loading .btn-text { display: none; }
+
+/* ===== RESULTS ===== */
+#results {
+  display: none;
+}
+
+#results.visible {
+  display: block;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Summary banner */
+.summary-banner {
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.summary-banner.pass {
+  background: var(--success-bg);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  color: var(--success);
+}
+
+.summary-banner.fail {
+  background: var(--error-bg);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--error);
+}
+
+.summary-banner.warn {
+  background: var(--warning-bg);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  color: var(--warning);
+}
+
+.summary-banner .icon { font-size: 18px; }
+
+/* NRT + Query info row */
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.nrt-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.nrt-badge.eligible {
+  background: var(--success-bg);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  color: var(--success);
+}
+
+.nrt-badge.ineligible {
+  background: var(--error-bg);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--error);
+}
+
+.query-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.query-info strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Category sections */
+.category-section {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.category-section summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+  user-select: none;
+  transition: background 0.1s;
+}
+
+.category-section summary:hover {
+  background: var(--bg-hover);
+}
+
+.category-section summary::-webkit-details-marker { display: none; }
+
+.category-section summary::before {
+  content: '\25B6';
+  font-size: 10px;
+  color: var(--text-dim);
+  transition: transform 0.15s;
+}
+
+.category-section[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.category-icon {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
+}
+
+.category-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.category-badge.all-pass {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.category-badge.has-fail {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.category-badge.has-warn {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.category-content {
+  padding: 6px 0;
+}
+
+/* Rule rows */
+.rule-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 16px 8px 20px;
+  transition: background 0.1s;
+}
+
+.rule-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.rule-status {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rule-status.pass { color: var(--success); }
+.rule-status.fail { color: var(--error); }
+.rule-status.warn { color: var(--warning); }
+.rule-status.info { color: var(--info); }
+.rule-status.unavailable { color: var(--text-dim); }
+
+.rule-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rule-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.rule-message {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.rule-suggestion {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  padding-left: 2px;
+}
+
+.rule-permissions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 5px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  border-left: 2px solid var(--accent);
+  font-size: 12px;
+}
+
+.rule-permissions .perm-item {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.rule-permissions .perm-label {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rule-permissions .perm-value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.rule-docs {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  flex-shrink: 0;
+  margin-top: 2px;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+}
+
+.rule-docs:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Error display */
+.error-display {
+  background: var(--error-bg);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--error);
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+/* Footer */
+.footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">&#x1f6e1;</div>
+    <h1>Custom Detection Validator</h1>
+    <span class="version" id="version-badge">v-</span>
+  </div>
+
+  <!-- Editor -->
+  <div class="editor-wrapper">
+    <div class="editor-label">
+      KQL Query
+      <kbd>Ctrl+Enter</kbd> to validate
+    </div>
+    <div class="editor-container">
+      <div class="line-numbers" id="line-numbers"><div>1</div></div>
+      <textarea id="query-input" placeholder="DeviceProcessEvents
+| where ActionType == 'ProcessCreated'
+| project Timestamp, DeviceId, ReportId, FileName" spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-validate" id="btn-validate" onclick="validate()">
+      <span class="btn-text">Validate</span>
+      <div class="spinner"></div>
+    </button>
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Runs entirely in your browser &middot; No data sent anywhere
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 1: VERSION & UI CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════
+
+const VERSION = '0.2.0';
+
+const CATEGORY_ORDER = [
+  { key: 'table', name: 'Table', icon: '\uD83D\uDCCB' },
+  { key: 'required_columns', name: 'Required Columns', icon: '\uD83D\uDCCA' },
+  { key: 'non_supported_columns', name: 'Non-Supported Columns', icon: '\uD83D\uDEAB' },
+  { key: 'nrt_eligibility', name: 'NRT Eligibility', icon: '\u26A1' },
+  { key: 'action_requirements', name: 'Available Actions', icon: '\uD83D\uDD27' },
+  { key: 'best_practices', name: 'Best Practices', icon: '\uD83D\uDCA1' },
+];
+
+const STATUS_ICONS = { pass: '\u2713', error: '\u2717', warning: '\u26A0', info: '\u2139' };
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 2: DATA TABLES
+// ═══════════════════════════════════════════════════════════════════════
+
+const ALL_XDR_TABLES = new Set([
+  'DeviceEvents','DeviceFileEvents','DeviceProcessEvents','DeviceNetworkEvents',
+  'DeviceRegistryEvents','DeviceLogonEvents','DeviceImageLoadEvents',
+  'DeviceFileCertificateInfo','DeviceInfo','DeviceNetworkInfo',
+  'DeviceTvmSoftwareInventory','DeviceTvmSoftwareVulnerabilities',
+  'DeviceTvmSoftwareVulnerabilitiesKB','DeviceTvmSecureConfigurationAssessment',
+  'DeviceTvmSecureConfigurationAssessmentKB','DeviceTvmSoftwareEvidenceBeta',
+  'DeviceTvmHardwareFirmware','DeviceTvmInfoGathering','DeviceTvmInfoGatheringKB',
+  'DeviceTvmBrowserExtensions','DeviceTvmBrowserExtensionsKB','DeviceTvmCertificateInfo',
+  'DeviceBaselineComplianceAssessment','DeviceBaselineComplianceAssessmentKB',
+  'DeviceBaselineComplianceProfiles',
+  'AlertInfo','AlertEvidence',
+  'EmailEvents','EmailAttachmentInfo','EmailPostDeliveryEvents','EmailUrlInfo',
+  'CampaignInfo','FileMaliciousContentInfo',
+  'IdentityDirectoryEvents','IdentityLogonEvents','IdentityQueryEvents',
+  'IdentityInfo','IdentityAccountInfo','IdentityEvents',
+  'CloudAppEvents','CloudAuditEvents','CloudProcessEvents','CloudStorageAggregatedEvents',
+  'AADSignInEventsBeta','AADSpnSignInEventsBeta','EntraIdSignInEvents','EntraIdSpnSignInEvents',
+  'BehaviorInfo','BehaviorEntities','UrlClickEvents',
+  'DataSecurityBehaviors','DataSecurityEvents',
+  'ExposureGraphEdges','ExposureGraphNodes',
+  'AIAgentsInfo','DisruptionAndResponseEvents',
+  'MessageEvents','MessagePostDeliveryEvents','MessageUrlInfo',
+  'GraphApiAuditEvents','OAuthAppInfo',
+]);
+
+const NRT_SUPPORTED_XDR = new Set([
+  'AlertEvidence','CloudAppEvents','DeviceEvents','DeviceFileCertificateInfo',
+  'DeviceFileEvents','DeviceImageLoadEvents','DeviceLogonEvents','DeviceNetworkEvents',
+  'DeviceNetworkInfo','DeviceInfo','DeviceProcessEvents','DeviceRegistryEvents',
+  'EmailAttachmentInfo','EmailEvents','EmailPostDeliveryEvents','EmailUrlInfo',
+  'IdentityDirectoryEvents','IdentityLogonEvents','IdentityQueryEvents','UrlClickEvents',
+]);
+
+const NRT_SUPPORTED_SENTINEL = new Set([
+  'ABAPAuditLog_CL','AuditLogs','AWSCloudTrail','AWSGuardDuty','AzureActivity',
+  'Cisco_Umbrella_dns_CL','Cisco_Umbrella_proxy_CL','CommonSecurityLog','GCPAuditLogs',
+  'MicrosoftGraphActivityLogs','OfficeActivity','Okta_CL','OktaV2_CL','ProofpointPOD',
+  'ProofPointTAPClicksPermitted_CL','ProofPointTAPMessagesDelivered_CL',
+  'SecurityAlert','SecurityEvent','SigninLogs',
+]);
+
+const EMAILEVENTS_NRT_EXCLUDED_COLUMNS = new Set(['LatestDeliveryLocation','LatestDeliveryAction']);
+
+const KNOWN_SENTINEL_TABLES = new Set([
+  'AuditLogs','SigninLogs','CommonSecurityLog','SecurityEvent','SecurityAlert',
+  'SecurityIncident','OfficeActivity','AzureActivity','AWSCloudTrail','AWSGuardDuty',
+  'GCPAuditLogs','MicrosoftGraphActivityLogs','ProofpointPOD','Syslog','WindowsEvent',
+  'DnsEvents','Heartbeat','W3CIISLog','WindowsFirewall','AADManagedIdentitySignInLogs',
+  'AADNonInteractiveUserSignInLogs','AADProvisioningLogs','AADRiskyUsers',
+  'AADServicePrincipalSignInLogs','AADUserRiskEvents','AzureDevOpsAuditing',
+  'AzureDiagnostics','AzureMetrics','BehaviorAnalytics','ContainerInventory',
+  'ContainerLog','Dynamics365Activity','Event','InsightsMetrics','IntuneAuditLogs',
+  'IntuneDevices','LAQueryLogs','MicrosoftAzureBastionAuditLogs',
+  'MicrosoftPurviewInformationProtection','Perf','PowerBIActivity','ProtectionStatus',
+  'SecurityRecommendation','SqlAtpStatus','StorageBlobLogs','StorageFileLogs',
+  'ThreatIntelligenceIndicator','Update','Usage','UserAccessAnalytics',
+  'UserPeerAnalytics','VMBoundPort','VMComputer','VMConnection','VMProcess',
+  'Anomalies','AppDependencies','AppTraces',
+]);
+
+const IMPACTED_ASSET_COLUMNS = new Set([
+  'DeviceId','DeviceName','RemoteDeviceName','RecipientEmailAddress',
+  'SenderFromAddress','SenderMailFromAddress','SenderObjectId','RecipientObjectId',
+  'AccountObjectId','AccountSid','AccountUpn','InitiatingProcessAccountSid',
+  'InitiatingProcessAccountUpn','InitiatingProcessAccountObjectId',
+]);
+
+const DEVICE_ACTION_COLUMNS = new Set(['DeviceId']);
+const FILE_ACTION_COLUMNS = new Set(['SHA1','InitiatingProcessSHA1','SHA256','InitiatingProcessSHA256']);
+const USER_COMPROMISE_COLUMNS = new Set(['AccountObjectId','InitiatingProcessAccountObjectId','RecipientObjectId']);
+const USER_DISABLE_COLUMNS = new Set(['AccountSid','InitiatingProcessAccountSid','RequestAccountSid','OnPremSid']);
+const EMAIL_ACTION_REQUIRED_COLUMNS = new Set(['NetworkMessageId','RecipientEmailAddress']);
+
+const NON_SUPPORTED_NRT_COLUMNS = {
+  EmailEvents: new Set(['LatestDeliveryLocation','LatestDeliveryAction']),
+};
+
+const TABLE_TO_PRODUCT = {
+  UrlClickEvents:'mdo', CampaignInfo:'mdo', FileMaliciousContentInfo:'mdo',
+  MessageEvents:'mdo', MessagePostDeliveryEvents:'mdo', MessageUrlInfo:'mdo',
+  BehaviorInfo:'mda', BehaviorEntities:'mda', OAuthAppInfo:'mda',
+  GraphApiAuditEvents:'entra_id',
+  CloudAuditEvents:'defender_for_cloud', CloudProcessEvents:'defender_for_cloud',
+  CloudStorageAggregatedEvents:'defender_for_cloud',
+  DataSecurityBehaviors:'purview', DataSecurityEvents:'purview',
+  ExposureGraphEdges:'msem', ExposureGraphNodes:'msem',
+  AlertInfo:'xdr_alert', AlertEvidence:'xdr_alert',
+  DisruptionAndResponseEvents:'xdr', AIAgentsInfo:'xdr',
+};
+
+const PREFIX_TO_PRODUCT = [
+  ['Device','mde'],['Email','mdo'],['Identity','mdi'],['CloudApp','mda'],
+  ['AAD','entra_id'],['Entra','entra_id'],['Alert','xdr_alert'],
+];
+
+const PRODUCT_RELEVANT_ACTIONS = {
+  mde: new Set(['ACT001','ACT002']),
+  mdo: new Set(['ACT003','ACT005']),
+  mdi: new Set(['ACT003','ACT004']),
+  mda: new Set(['ACT003']),
+  entra_id: new Set(['ACT003','ACT004']),
+  defender_for_cloud: new Set(['ACT003']),
+  purview: new Set(['ACT001','ACT003']),
+  msem: new Set(),
+  xdr_alert: new Set(['ACT001','ACT002','ACT003','ACT004','ACT005']),
+  xdr: new Set(['ACT003']),
+  sentinel: new Set(['ACT001','ACT002','ACT003','ACT004','ACT005']),
+  unknown: new Set(['ACT001','ACT002','ACT003','ACT004','ACT005']),
+};
+
+const ALL_ACTION_RULE_IDS = new Set(['ACT001','ACT002','ACT003','ACT004','ACT005']);
+
+const ACTION_PERMISSIONS = {
+  ACT001: { unified_rbac:'Response (manage)', entra_role:'Security Operator', doc_url:'https://learn.microsoft.com/defender-xdr/custom-permissions-details' },
+  ACT002: { unified_rbac:'Response (manage)', entra_role:'Security Operator', doc_url:'https://learn.microsoft.com/defender-xdr/custom-permissions-details' },
+  ACT003: { unified_rbac:'Response (manage)', entra_role:'Security Operator', doc_url:'https://learn.microsoft.com/defender-xdr/custom-permissions-details' },
+  ACT004: { unified_rbac:'Response (manage)', entra_role:'User Administrator (Entra ID) / MDI sensor (AD)', doc_url:'https://learn.microsoft.com/defender-for-identity/remediation-actions' },
+  ACT005: { unified_rbac:'Email & collaboration advanced actions (manage)', entra_role:'Search and Purge role', doc_url:'https://learn.microsoft.com/defender-office-365/remediate-malicious-email-delivered-office-365' },
+};
+
+const CATEGORY_DISPLAY_NAMES = {
+  mde:'Microsoft Defender for Endpoint (Device*)', alert:'Alert',
+  observation:'Observation', other_xdr:'Defender XDR',
+  sentinel:'Microsoft Sentinel', unknown:'Unknown',
+};
+
+const KQL_TABULAR_OPERATORS = new Set(
+  'where project project-away project-keep project-rename project-reorder extend summarize join union sort order top take limit distinct count render invoke let parse parse-where mv-expand mv-apply make-series evaluate search find datatable externaldata as lookup sample sample-distinct serialize range print fork facet getschema'.split(' ')
+);
+
+const KQL_KEYWORDS = new Set(
+  'and or not in between contains startswith endswith has has_any has_all matches regex true false ago now datetime timespan long int real string bool dynamic typeof toscalar iff iif case coalesce isempty isnotempty isnull isnotnull tolower toupper tostring toint tolong todouble todatetime totimespan tobool todecimal bin floor ceiling round strlen substring trim replace split strcat pack pack_array pack_all bag_pack extract extract_all parse_json parse_url parse_path parse_urlquery format_datetime format_timespan count dcount sum avg min max percentile percentiles stdev variance any arg_max arg_min make_list make_set make_bag countif dcountif sumif avgif ingestion_time kind inner outer leftouter rightouter leftanti rightanti leftsemi rightsemi fullouter innerunique hint shufflekey strategy broadcast asc desc nulls first last by on with type set bag array table database cluster'.split(' ')
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 3: TABLE CLASSIFICATION
+// ═══════════════════════════════════════════════════════════════════════
+
+function isSentinelTable(name) {
+  return name.endsWith('_CL') || KNOWN_SENTINEL_TABLES.has(name);
+}
+
+function classifyTable(tableName) {
+  if (isSentinelTable(tableName)) {
+    return { category:'sentinel', requiredTimestamp:'TimeGenerated', requiredEventIdColumns:[], supportsNrt: NRT_SUPPORTED_SENTINEL.has(tableName), supportsScheduled:true };
+  }
+  if (ALL_XDR_TABLES.has(tableName)) {
+    if (tableName.startsWith('Alert')) {
+      return { category:'alert', requiredTimestamp:'Timestamp', requiredEventIdColumns:[], supportsNrt: NRT_SUPPORTED_XDR.has(tableName), supportsScheduled:true };
+    }
+    if (tableName.startsWith('Device')) {
+      return { category:'mde', requiredTimestamp:'Timestamp', requiredEventIdColumns:['DeviceId','ReportId'], supportsNrt: NRT_SUPPORTED_XDR.has(tableName), supportsScheduled:true };
+    }
+    if (tableName.startsWith('Observation')) {
+      return { category:'observation', requiredTimestamp:'Timestamp', requiredEventIdColumns:['ObservationId'], supportsNrt: NRT_SUPPORTED_XDR.has(tableName), supportsScheduled:true };
+    }
+    return { category:'other_xdr', requiredTimestamp:'Timestamp', requiredEventIdColumns:['ReportId'], supportsNrt: NRT_SUPPORTED_XDR.has(tableName), supportsScheduled:true };
+  }
+  return { category:'unknown', requiredTimestamp:'Timestamp', requiredEventIdColumns:['ReportId'], supportsNrt:false, supportsScheduled:true };
+}
+
+function getTableProduct(tableName) {
+  if (TABLE_TO_PRODUCT[tableName]) return TABLE_TO_PRODUCT[tableName];
+  if (isSentinelTable(tableName)) return 'sentinel';
+  for (const [prefix, product] of PREFIX_TO_PRODUCT) {
+    if (tableName.startsWith(prefix)) return product;
+  }
+  return 'unknown';
+}
+
+function getRelevantActions(tableName) {
+  const product = getTableProduct(tableName);
+  return PRODUCT_RELEVANT_ACTIONS[product] || ALL_ACTION_RULE_IDS;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 4: TOKENIZER
+// ═══════════════════════════════════════════════════════════════════════
+
+function tokenize(kqlText) {
+  const result = [];
+  const literals = [];
+  let hasComments = false;
+  let i = 0;
+  const n = kqlText.length;
+
+  while (i < n) {
+    const c = kqlText[i];
+
+    // Single-line comment
+    if (c === '/' && i + 1 < n && kqlText[i + 1] === '/') {
+      hasComments = true;
+      while (i < n && kqlText[i] !== '\n') i++;
+      if (i < n) { result.push('\n'); i++; }
+      continue;
+    }
+
+    // Multi-line comment
+    if (c === '/' && i + 1 < n && kqlText[i + 1] === '*') {
+      hasComments = true;
+      i += 2;
+      while (i < n) {
+        if (kqlText[i] === '*' && i + 1 < n && kqlText[i + 1] === '/') { i += 2; break; }
+        i++;
+      }
+      result.push(' ');
+      continue;
+    }
+
+    // String literal
+    if (c === "'" || c === '"') {
+      const quote = c;
+      i++;
+      const litChars = [];
+      while (i < n) {
+        const sc = kqlText[i];
+        if (sc === '\\') {
+          litChars.push(sc);
+          i++;
+          if (i < n) { litChars.push(kqlText[i]); i++; }
+          continue;
+        }
+        if (sc === quote) { i++; break; }
+        litChars.push(sc);
+        i++;
+      }
+      literals.push(litChars.join(''));
+      const idx = literals.length - 1;
+      result.push(quote + '__STR' + idx + '__' + quote);
+      continue;
+    }
+
+    result.push(c);
+    i++;
+  }
+
+  return { cleanedText: result.join(''), originalText: kqlText, hasComments, stringLiterals: literals };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 5: EXTRACTOR
+// ═══════════════════════════════════════════════════════════════════════
+
+function createParsedQuery(rawText) {
+  return {
+    sourceTables: [], primaryTable: '',
+    projectedColumns: [], projectAwayColumns: [],
+    summarizeByColumns: [], summarizeAggColumns: [],
+    allReferencedColumns: [],
+    hasJoin: false, hasUnion: false, hasExternaldata: false,
+    hasSummarize: false, hasProject: false, hasProjectAway: false,
+    hasExtend: false, hasInvoke: false, hasComments: false,
+    operatorsUsed: [],
+    filtersOnTimestamp: false, timestampManipulated: false,
+    usesArgMaxTimestamp: false, usesIngestionTime: false,
+    hasImplicitColumns: false, rawText: rawText,
+  };
+}
+
+function extract(tokenized) {
+  const parsed = createParsedQuery(tokenized.originalText);
+  parsed.hasComments = tokenized.hasComments;
+  const mainBody = stripLetStatements(tokenized.cleanedText);
+  extractTables(mainBody, parsed);
+  extractOperators(mainBody, parsed);
+  extractColumns(mainBody, parsed);
+  detectPatterns(mainBody, parsed);
+  return parsed;
+}
+
+function stripLetStatements(text) {
+  return text.replace(/^\s*let\s+\w+\s*=\s*[^;]*;\s*/gm, '').trim();
+}
+
+function extractTables(text, parsed) {
+  const tables = [];
+
+  // Union detection
+  const unionMatch = text.match(/\bunion\b\s+((?:kind\s*=\s*\w+\s+)?)([\w\s,]+?)(?:\||$)/i);
+  if (unionMatch) {
+    parsed.hasUnion = true;
+    for (const t of unionMatch[2].split(',')) {
+      const name = t.trim();
+      if (name && isTableName(name)) tables.push(name);
+    }
+  }
+
+  // Primary table
+  if (!/^\s*union\b/i.test(text)) {
+    const primaryMatch = text.match(/^\s*(\w+)\s*(?:\||$)/);
+    if (primaryMatch) {
+      const name = primaryMatch[1];
+      if (isTableName(name) && !tables.includes(name)) tables.unshift(name);
+    }
+  }
+
+  // Join with parens
+  let m;
+  const joinParenRe = /\bjoin\b[^(]*\(\s*(\w+)/gi;
+  while ((m = joinParenRe.exec(text)) !== null) {
+    const name = m[1];
+    if (isTableName(name) && !tables.includes(name)) tables.push(name);
+    parsed.hasJoin = true;
+  }
+
+  // Join without parens
+  const joinNoParenRe = /\bjoin\b\s+(?:kind\s*=\s*\w+\s+)?(\w+)\s+on\b/gi;
+  while ((m = joinNoParenRe.exec(text)) !== null) {
+    const name = m[1];
+    if (isTableName(name) && !tables.includes(name)) tables.push(name);
+    parsed.hasJoin = true;
+  }
+
+  parsed.sourceTables = tables;
+  parsed.primaryTable = tables.length > 0 ? tables[0] : '';
+}
+
+function extractOperators(text, parsed) {
+  const operators = [];
+  const re = /\|\s*([\w-]+)/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const op = m[1].toLowerCase();
+    if (KQL_TABULAR_OPERATORS.has(op)) operators.push(op);
+  }
+  parsed.operatorsUsed = operators;
+  parsed.hasJoin = parsed.hasJoin || operators.includes('join');
+  parsed.hasUnion = parsed.hasUnion || operators.includes('union');
+  parsed.hasExternaldata = operators.includes('externaldata');
+  parsed.hasSummarize = operators.includes('summarize');
+  parsed.hasProject = operators.includes('project') || operators.includes('project-keep');
+  parsed.hasProjectAway = operators.includes('project-away');
+  parsed.hasExtend = operators.includes('extend');
+  parsed.hasInvoke = operators.includes('invoke');
+}
+
+function extractColumns(text, parsed) {
+  // Projected columns (last project/project-keep)
+  const projectMatches = [...text.matchAll(/\|\s*project(?:-keep)?\s+([\s\S]*?)(?=\||$)/g)];
+  if (projectMatches.length > 0) {
+    const last = projectMatches[projectMatches.length - 1][1].trim();
+    parsed.projectedColumns = parseColumnList(last);
+    parsed.hasImplicitColumns = false;
+  } else {
+    parsed.hasImplicitColumns = !parsed.hasSummarize;
+  }
+
+  // Project-away columns
+  const paMatches = [...text.matchAll(/\|\s*project-away\s+([\s\S]*?)(?=\||$)/g)];
+  for (const pa of paMatches) {
+    parsed.projectAwayColumns = parseColumnList(pa[1].trim());
+  }
+
+  // Summarize columns
+  if (parsed.hasSummarize) extractSummarizeColumns(text, parsed);
+
+  // All referenced columns (PascalCase identifiers)
+  const allCols = [];
+  const colRe = /\b([A-Z][a-zA-Z0-9_]*)\b/g;
+  let m;
+  while ((m = colRe.exec(text)) !== null) {
+    const name = m[1];
+    if (!KQL_KEYWORDS.has(name.toLowerCase()) && !parsed.sourceTables.includes(name)
+        && !name.startsWith('__STR') && !allCols.includes(name)) {
+      allCols.push(name);
+    }
+  }
+  parsed.allReferencedColumns = allCols;
+}
+
+function extractSummarizeColumns(text, parsed) {
+  const sumMatch = text.match(/\|\s*summarize\s+([\s\S]*?)(?=\||$)/);
+  if (!sumMatch) return;
+  const sumText = sumMatch[1].trim();
+
+  const bySplit = sumText.split(/\bby\b/);
+  let aggPart, byPart = '';
+  if (bySplit.length >= 2) {
+    aggPart = bySplit[0].trim();
+    byPart = bySplit.slice(1).join('by').trim();
+    parsed.summarizeByColumns = parseColumnList(byPart);
+  } else {
+    aggPart = sumText;
+  }
+
+  const aggColumns = [];
+
+  // Tuple: (Col1, Col2)=func(...)
+  const tupleRe = /\(([^)]+)\)\s*=\s*(\w+)\s*\(/g;
+  let m;
+  while ((m = tupleRe.exec(aggPart)) !== null) {
+    for (const c of m[1].split(',')) {
+      const col = c.trim();
+      if (col) aggColumns.push(col);
+    }
+  }
+
+  // Simple alias: Alias=func(...)
+  const aliasRe = /(\w+)\s*=\s*\w+\s*\(/g;
+  while ((m = aliasRe.exec(aggPart)) !== null) {
+    const name = m[1];
+    if (!aggColumns.includes(name)) aggColumns.push(name);
+  }
+
+  // Bare count()
+  if (/(?<!\w)count\s*\(\s*\)/.test(aggPart)) {
+    aggColumns.push('count_');
+  }
+
+  parsed.summarizeAggColumns = aggColumns;
+
+  if (!parsed.hasProject) {
+    parsed.projectedColumns = [...parsed.summarizeByColumns, ...aggColumns];
+  }
+}
+
+function detectPatterns(text, parsed) {
+  if (/\|\s*where\b[^|]*\bTimestamp\b/i.test(text)) parsed.filtersOnTimestamp = true;
+  if (/\|\s*extend\b[^|]*\bTimestamp\s*=/.test(text)) parsed.timestampManipulated = true;
+  if (/\|\s*project\b[^|]*\bTimestamp\s*=\s*\w/.test(text)) parsed.timestampManipulated = true;
+  if (/arg_max\s*\(\s*Timestamp\b/.test(text)) parsed.usesArgMaxTimestamp = true;
+  if (/ingestion_time\s*\(\s*\)/.test(text)) parsed.usesIngestionTime = true;
+  if (/\bexternaldata\b/i.test(text)) parsed.hasExternaldata = true;
+}
+
+function parseColumnList(text) {
+  const columns = [];
+  for (let item of text.split(',')) {
+    item = item.trim();
+    if (!item) continue;
+    const aliasMatch = item.match(/^(\w+)\s*=/);
+    if (aliasMatch) {
+      columns.push(aliasMatch[1]);
+    } else {
+      const nameMatch = item.match(/^(\w+)/);
+      if (nameMatch) {
+        const name = nameMatch[1];
+        if (!KQL_KEYWORDS.has(name.toLowerCase())) columns.push(name);
+      }
+    }
+  }
+  return columns;
+}
+
+function isTableName(name) {
+  if (!name || name[0] >= 'a' && name[0] <= 'z') return false;
+  if (KQL_KEYWORDS.has(name.toLowerCase())) return false;
+  if (KQL_TABULAR_OPERATORS.has(name.toLowerCase())) return false;
+  if (name.startsWith('__STR')) return false;
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 6: VALIDATORS
+// ═══════════════════════════════════════════════════════════════════════
+
+// --- Helpers ---
+function setIntersect(a, b) { return new Set([...a].filter(x => b.has(x))); }
+function setDiff(a, b) { return new Set([...a].filter(x => !b.has(x))); }
+function getOutputColumns(parsed) {
+  if (parsed.projectedColumns.length > 0) return new Set(parsed.projectedColumns);
+  return new Set(parsed.allReferencedColumns);
+}
+function columnPresent(col, outputCols, parsed) {
+  if (parsed.hasImplicitColumns) return true;
+  return outputCols.has(col);
+}
+function result(passed, severity, category, ruleId, message, suggestion, docUrl) {
+  return { passed, severity, category, rule_id: ruleId, message, suggestion: suggestion || '', doc_url: docUrl || '' };
+}
+
+// --- TBL: Table Validator ---
+function validateTable(parsed) {
+  const results = [];
+  const DOC = 'https://learn.microsoft.com/defender-xdr/custom-detection-rules';
+  if (!parsed.primaryTable) {
+    results.push(result(false, 'error', 'table', 'TBL001', 'No table found in query', "Query must start with a table name, e.g., 'DeviceEvents | where ...'", DOC));
+    return results;
+  }
+  const tc = classifyTable(parsed.primaryTable);
+  if (tc.category === 'unknown') {
+    results.push(result(false, 'warning', 'table', 'TBL001', "'" + parsed.primaryTable + "' is not a known Advanced Hunting table", 'If this is a custom Sentinel table, use the _CL suffix. Otherwise, check the table name for typos.', DOC));
+  } else {
+    results.push(result(true, 'info', 'table', 'TBL001', "'" + parsed.primaryTable + "' is a known table"));
+  }
+  const catName = CATEGORY_DISPLAY_NAMES[tc.category] || tc.category;
+  const reqCols = [tc.requiredTimestamp, ...tc.requiredEventIdColumns];
+  results.push(result(true, 'info', 'table', 'TBL002', 'Table category: ' + catName + '. Required columns: ' + reqCols.join(', ')));
+  const freqMsg = tc.supportsNrt ? 'Supports both NRT (Continuous) and Scheduled frequency' : 'Supports Scheduled frequency only (not NRT-eligible)';
+  results.push(result(true, 'info', 'table', 'TBL003', freqMsg));
+  return results;
+}
+
+// --- RC: Required Columns Validator ---
+function validateRequiredColumns(parsed) {
+  const results = [];
+  const DOC = 'https://learn.microsoft.com/defender-xdr/custom-detection-rules#required-columns-in-the-query-results';
+  if (!parsed.primaryTable) return results;
+  const tc = classifyTable(parsed.primaryTable);
+  const outputCols = getOutputColumns(parsed);
+  const tsCol = tc.requiredTimestamp;
+
+  // RC001
+  if (columnPresent(tsCol, outputCols, parsed)) {
+    results.push(result(true, 'error', 'required_columns', 'RC001', tsCol + ' column present'));
+  } else {
+    results.push(result(false, 'error', 'required_columns', 'RC001', tsCol + ' column missing from query output', "Add '" + tsCol + "' to your project statement or remove the project to include all columns", DOC));
+  }
+
+  // RC002
+  if (parsed.timestampManipulated) {
+    results.push(result(false, 'error', 'required_columns', 'RC002', tsCol + ' appears to be manipulated (assigned a new value)', 'Return ' + tsCol + " exactly as it appears in the raw event. Do not use 'extend " + tsCol + " = ...' or 'project " + tsCol + " = ...'", DOC));
+  } else {
+    results.push(result(true, 'error', 'required_columns', 'RC002', tsCol + ' is not manipulated'));
+  }
+
+  // RC003
+  if (tc.requiredEventIdColumns.length > 0) {
+    const missing = tc.requiredEventIdColumns.filter(c => !columnPresent(c, outputCols, parsed));
+    if (missing.length > 0) {
+      results.push(result(false, 'error', 'required_columns', 'RC003', 'Missing event ID column(s): ' + missing.join(', '),
+        'For ' + tc.category + ' tables, the query must return: ' + tsCol + ' + ' + tc.requiredEventIdColumns.join(', '), DOC));
+    } else {
+      results.push(result(true, 'error', 'required_columns', 'RC003', 'Event ID columns present: ' + tsCol + ' + ' + tc.requiredEventIdColumns.join(', ')));
+    }
+  } else {
+    results.push(result(true, 'error', 'required_columns', 'RC003', 'Event ID: only ' + tsCol + ' required for ' + tc.category + ' tables'));
+  }
+
+  // RC004
+  const foundAssets = [...outputCols].filter(c => IMPACTED_ASSET_COLUMNS.has(c));
+  if (foundAssets.length > 0 || parsed.hasImplicitColumns) {
+    const msg = parsed.hasImplicitColumns ? 'Impacted asset columns available (all columns returned implicitly)' : 'Impacted asset column(s): ' + foundAssets.join(', ');
+    results.push(result(true, 'error', 'required_columns', 'RC004', msg));
+  } else {
+    results.push(result(false, 'error', 'required_columns', 'RC004', 'No impacted asset column found in query output',
+      'Add at least one of: ' + [...IMPACTED_ASSET_COLUMNS].sort().join(', '), DOC));
+  }
+
+  // RC005
+  if (parsed.hasSummarize && !parsed.usesArgMaxTimestamp) {
+    const tsInBy = parsed.summarizeByColumns.includes(tsCol);
+    const tsInAgg = parsed.summarizeAggColumns.includes(tsCol);
+    if (!tsInBy && !tsInAgg && !parsed.hasProject) {
+      results.push(result(false, 'warning', 'required_columns', 'RC005', "'summarize' may drop " + tsCol + ' from output',
+        'Use arg_max to preserve ' + tsCol + ': summarize (' + tsCol + ', ReportId)=arg_max(' + tsCol + ', ReportId), ... by ...', DOC));
+    }
+  }
+
+  // RC006
+  if (parsed.hasProject && parsed.projectedColumns.length > 0) {
+    const allRequired = new Set([tsCol, ...tc.requiredEventIdColumns]);
+    const projected = new Set(parsed.projectedColumns);
+    const missing = [...allRequired].filter(c => !projected.has(c));
+    if (missing.length > 0 && !parsed.hasSummarize) {
+      results.push(result(false, 'error', 'required_columns', 'RC006', "'project' excludes required column(s): " + missing.sort().join(', '),
+        'Add ' + missing.sort().join(', ') + ' to your project statement', DOC));
+    }
+  }
+
+  // RC007
+  if (parsed.hasProjectAway && parsed.projectAwayColumns.length > 0) {
+    const allRequired = new Set([tsCol, ...tc.requiredEventIdColumns]);
+    const removed = parsed.projectAwayColumns.filter(c => allRequired.has(c));
+    if (removed.length > 0) {
+      results.push(result(false, 'error', 'required_columns', 'RC007', "'project-away' removes required column(s): " + removed.sort().join(', '),
+        'Do not remove ' + removed.sort().join(', ') + ' with project-away', DOC));
+    }
+  }
+
+  return results;
+}
+
+// --- NSC: Non-Supported Columns Validator ---
+function validateNonSupportedColumns(parsed) {
+  const results = [];
+  const DOC_NRT = 'https://learn.microsoft.com/defender-xdr/custom-detection-rules#continuous-nrt-frequency';
+  const DOC_EMAIL = 'https://learn.microsoft.com/defender-xdr/advanced-hunting-emailevents-table';
+  if (!parsed.primaryTable) return results;
+  const table = parsed.primaryTable;
+  const outputCols = getOutputColumns(parsed);
+
+  // NSC001
+  const nrtExcluded = NON_SUPPORTED_NRT_COLUMNS[table];
+  if (nrtExcluded) {
+    const found = setIntersect(outputCols, nrtExcluded);
+    if (found.size > 0) {
+      const cols = [...found].sort().join(', ');
+      const isAre = found.size === 1 ? 'is' : 'are';
+      const itThem = found.size === 1 ? 'it' : 'them';
+      results.push(result(false, 'warning', 'non_supported_columns', 'NSC001', 'NRT-excluded column(s) in output: ' + cols,
+        cols + ' ' + isAre + ' not supported in Continuous (NRT) frequency for ' + table + '. Remove ' + itThem + ' or use scheduled frequency.', DOC_NRT));
+    } else {
+      results.push(result(true, 'warning', 'non_supported_columns', 'NSC001', 'No NRT-excluded columns used for ' + table));
+    }
+  }
+
+  // NSC002
+  const isNrtTable = NRT_SUPPORTED_XDR.has(table) || NRT_SUPPORTED_SENTINEL.has(table);
+  if (isNrtTable) {
+    results.push(result(true, 'info', 'non_supported_columns', 'NSC002',
+      'NRT note: Only GA columns support Continuous (NRT) frequency. Preview-only columns may not work with NRT for ' + table + '.', '', DOC_NRT));
+  }
+
+  // NSC003
+  if (table === 'EmailEvents') {
+    const streamingExcl = new Set(['LatestDeliveryLocation','LatestDeliveryAction']);
+    const foundStr = setIntersect(outputCols, streamingExcl);
+    if (foundStr.size > 0) {
+      const cols = [...foundStr].sort().join(', ');
+      const isAre = foundStr.size === 1 ? 'is' : 'are';
+      results.push(result(false, 'info', 'non_supported_columns', 'NSC003', 'Streaming API excluded: ' + cols,
+        cols + ' ' + isAre + ' not available in the Streaming API for EmailEvents.', DOC_EMAIL));
+    }
+  }
+
+  return results;
+}
+
+// --- NRT: NRT Eligibility Validator ---
+function validateNrtEligibility(parsed) {
+  const results = [];
+  const DOC = 'https://learn.microsoft.com/defender-xdr/custom-detection-rules#continuous-nrt-frequency';
+  if (!parsed.primaryTable) return results;
+
+  // NRT001
+  if (parsed.sourceTables.length === 1) {
+    results.push(result(true, 'error', 'nrt_eligibility', 'NRT001', 'Single table query'));
+  } else {
+    results.push(result(false, 'error', 'nrt_eligibility', 'NRT001', 'Query references ' + parsed.sourceTables.length + ' tables: ' + parsed.sourceTables.join(', '),
+      'NRT requires exactly one table. Remove joins/unions.', DOC));
+  }
+
+  // NRT002
+  if (parsed.hasJoin) {
+    results.push(result(false, 'error', 'nrt_eligibility', 'NRT002', "Query uses 'join' operator", 'NRT does not support joins. Use scheduled frequency instead.', DOC));
+  } else {
+    results.push(result(true, 'error', 'nrt_eligibility', 'NRT002', 'No joins'));
+  }
+
+  // NRT003
+  if (parsed.hasUnion) {
+    results.push(result(false, 'error', 'nrt_eligibility', 'NRT003', "Query uses 'union' operator", 'NRT does not support unions. Use scheduled frequency instead.', DOC));
+  } else {
+    results.push(result(true, 'error', 'nrt_eligibility', 'NRT003', 'No unions'));
+  }
+
+  // NRT004
+  if (parsed.hasExternaldata) {
+    results.push(result(false, 'error', 'nrt_eligibility', 'NRT004', "Query uses 'externaldata' operator", 'NRT does not support externaldata. Use scheduled frequency instead.', DOC));
+  } else {
+    results.push(result(true, 'error', 'nrt_eligibility', 'NRT004', 'No externaldata'));
+  }
+
+  // NRT005
+  if (parsed.hasComments) {
+    results.push(result(false, 'error', 'nrt_eligibility', 'NRT005', 'Query contains comment lines', 'NRT does not allow comments. Remove all // and /* */ comments.', DOC));
+  } else {
+    results.push(result(true, 'error', 'nrt_eligibility', 'NRT005', 'No comment lines'));
+  }
+
+  // NRT006
+  const tc = classifyTable(parsed.primaryTable);
+  if (tc.supportsNrt) {
+    results.push(result(true, 'error', 'nrt_eligibility', 'NRT006', "'" + parsed.primaryTable + "' supports NRT frequency"));
+  } else {
+    results.push(result(false, 'error', 'nrt_eligibility', 'NRT006', "'" + parsed.primaryTable + "' does not support NRT frequency",
+      'Use scheduled frequency. See docs for NRT-supported tables.', DOC));
+  }
+
+  // NRT007
+  if (parsed.primaryTable === 'EmailEvents') {
+    const excluded = parsed.allReferencedColumns.filter(c => EMAILEVENTS_NRT_EXCLUDED_COLUMNS.has(c));
+    if (excluded.length > 0) {
+      results.push(result(false, 'warning', 'nrt_eligibility', 'NRT007', 'EmailEvents NRT excludes columns: ' + excluded.join(', '),
+        'LatestDeliveryLocation and LatestDeliveryAction are not available in NRT mode for EmailEvents. Remove these columns or use scheduled frequency.', DOC));
+    }
+  }
+
+  return results;
+}
+
+// --- ACT: Action Columns Validator ---
+function permissionsNote(ruleId) {
+  const p = ACTION_PERMISSIONS[ruleId];
+  if (!p) return '';
+  return 'RBAC: ' + p.unified_rbac + '\nEntra role: ' + p.entra_role;
+}
+
+function permissionsDocUrl(ruleId) {
+  const p = ACTION_PERMISSIONS[ruleId];
+  return p ? p.doc_url : '';
+}
+
+function checkAny(ruleId, actionName, requiredCols, outputCols, implicit) {
+  const found = setIntersect(outputCols, requiredCols);
+  if (found.size > 0 || implicit) {
+    const detail = implicit ? 'available (all columns returned implicitly)' : 'available (' + [...found].sort().join(', ') + ')';
+    return result(true, 'info', 'action_requirements', ruleId, actionName + ': ' + detail, permissionsNote(ruleId), permissionsDocUrl(ruleId));
+  }
+  return result(false, 'info', 'action_requirements', ruleId, actionName + ': not available (needs ' + [...requiredCols].sort().join(' or ') + ')',
+    'To enable this action, include ' + [...requiredCols].sort().join(' or ') + ' in your query output');
+}
+
+function checkAll(ruleId, actionName, requiredCols, outputCols, implicit) {
+  if (implicit) {
+    return result(true, 'info', 'action_requirements', ruleId, actionName + ': available (all columns returned implicitly)', permissionsNote(ruleId), permissionsDocUrl(ruleId));
+  }
+  const missing = setDiff(requiredCols, outputCols);
+  if (missing.size === 0) {
+    return result(true, 'info', 'action_requirements', ruleId, actionName + ': available (' + [...requiredCols].sort().join(', ') + ')', permissionsNote(ruleId), permissionsDocUrl(ruleId));
+  }
+  return result(false, 'info', 'action_requirements', ruleId, actionName + ': not available (missing ' + [...missing].sort().join(', ') + ')',
+    'To enable this action, include ' + [...missing].sort().join(', ') + ' in your query output');
+}
+
+function validateActionColumns(parsed) {
+  const results = [];
+  if (!parsed.primaryTable) return results;
+  const outputCols = getOutputColumns(parsed);
+  const relevant = getRelevantActions(parsed.primaryTable);
+
+  if (relevant.has('ACT001')) {
+    results.push(checkAny('ACT001', 'Device actions (isolate, scan, investigate, restrict, collect package)', DEVICE_ACTION_COLUMNS, outputCols, parsed.hasImplicitColumns));
+  }
+
+  if (relevant.has('ACT002')) {
+    let act002 = checkAny('ACT002', 'File actions (allow/block, quarantine)', FILE_ACTION_COLUMNS, outputCols, parsed.hasImplicitColumns);
+    // Quarantine hint
+    if (act002.passed && !parsed.hasImplicitColumns && !outputCols.has('DeviceId')) {
+      act002 = result(act002.passed, act002.severity, act002.category, act002.rule_id, act002.message,
+        permissionsNote('ACT002') + '\nNote: Quarantine file also requires DeviceId in the query output', act002.doc_url);
+    }
+    results.push(act002);
+  }
+
+  if (relevant.has('ACT003')) {
+    results.push(checkAny('ACT003', 'Mark user as compromised', USER_COMPROMISE_COLUMNS, outputCols, parsed.hasImplicitColumns));
+  }
+
+  if (relevant.has('ACT004')) {
+    results.push(checkAny('ACT004', 'Disable user / Force password reset', USER_DISABLE_COLUMNS, outputCols, parsed.hasImplicitColumns));
+  }
+
+  if (relevant.has('ACT005')) {
+    results.push(checkAll('ACT005', 'Email actions (move to folder, delete)', EMAIL_ACTION_REQUIRED_COLUMNS, outputCols, parsed.hasImplicitColumns));
+  }
+
+  return results;
+}
+
+// --- BP: Best Practices Validator ---
+function validateBestPractices(parsed) {
+  const results = [];
+  const DOC = 'https://learn.microsoft.com/defender-xdr/custom-detection-rules';
+  if (!parsed.primaryTable) return results;
+  const tc = classifyTable(parsed.primaryTable);
+
+  // BP001
+  if (parsed.filtersOnTimestamp) {
+    results.push(result(false, 'warning', 'best_practices', 'BP001', 'Query filters on Timestamp column',
+      'Avoid filtering on Timestamp. Custom detection data is pre-filtered based on the detection frequency. Use ingestion_time() instead for time filtering.', DOC));
+  }
+
+  // BP002
+  if (!parsed.usesIngestionTime && !parsed.filtersOnTimestamp) {
+    results.push(result(true, 'info', 'best_practices', 'BP002', 'Consider using ingestion_time() for time-based filtering',
+      "For better performance, use 'where ingestion_time() > ago(1d)' instead of Timestamp-based filtering.", DOC));
+  }
+
+  // BP003
+  if (parsed.hasSummarize && !parsed.usesArgMaxTimestamp) {
+    const tsCol = tc.requiredTimestamp;
+    const sumOutput = new Set([...parsed.summarizeByColumns, ...parsed.summarizeAggColumns]);
+    if (!sumOutput.has(tsCol)) {
+      const idCols = tc.requiredEventIdColumns;
+      const missing = [tsCol, ...idCols.filter(c => !sumOutput.has(c))];
+      if (missing.length > 0) {
+        results.push(result(false, 'warning', 'best_practices', 'BP003',
+          "'summarize' may lose required column(s): " + missing.join(', '),
+          'Use arg_max to preserve columns: summarize (' + missing.join(', ') + ')=arg_max(' + tsCol + ', ' + (missing.length > 1 ? missing.slice(1).join(', ') : '...') + '), ... by ...', DOC));
+      }
+    }
+  }
+
+  // BP004
+  const hasFiltering = parsed.operatorsUsed.some(op => ['where','summarize','distinct','top','take','limit','sample'].includes(op));
+  if (!hasFiltering) {
+    results.push(result(true, 'info', 'best_practices', 'BP004', 'No filtering/aggregation detected',
+      'Custom detection rules can generate max 150 alerts per run. Consider adding filters to avoid excessive alerts.', DOC));
+  }
+
+  // BP005
+  if (parsed.primaryTable === 'EmailEvents' && tc.supportsNrt) {
+    const excluded = parsed.allReferencedColumns.filter(c => EMAILEVENTS_NRT_EXCLUDED_COLUMNS.has(c));
+    if (excluded.length > 0) {
+      results.push(result(false, 'warning', 'best_practices', 'BP005', 'EmailEvents columns not available in NRT: ' + excluded.join(', '),
+        'LatestDeliveryLocation and LatestDeliveryAction are excluded from NRT mode. If using NRT frequency, these columns will be empty.', DOC));
+    }
+  }
+
+  return results;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 7: VALIDATION ENGINE
+// ═══════════════════════════════════════════════════════════════════════
+
+function validateQuery(kqlText) {
+  const tokenized = tokenize(kqlText);
+  const parsed = extract(tokenized);
+  const allResults = [
+    ...validateTable(parsed),
+    ...validateRequiredColumns(parsed),
+    ...validateNonSupportedColumns(parsed),
+    ...validateNrtEligibility(parsed),
+    ...validateActionColumns(parsed),
+    ...validateBestPractices(parsed),
+  ];
+
+  const nrtResults = allResults.filter(r => r.category === 'nrt_eligibility');
+  const nrtEligible = nrtResults.length > 0 && nrtResults.every(r => r.passed);
+  const errors = allResults.filter(r => !r.passed && r.severity === 'error').length;
+  const warnings = allResults.filter(r => !r.passed && r.severity === 'warning').length;
+  const info = allResults.filter(r => r.severity === 'info').length;
+
+  return {
+    version: VERSION,
+    source_tables: parsed.sourceTables,
+    primary_table: parsed.primaryTable,
+    projected_columns: parsed.projectedColumns,
+    implicit_columns: parsed.hasImplicitColumns,
+    results: allResults,
+    summary: { errors, warnings, info, nrt_eligible: nrtEligible },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SECTION 8: UI
+// ═══════════════════════════════════════════════════════════════════════
+
+const textarea = document.getElementById('query-input');
+const lineNumbers = document.getElementById('line-numbers');
+const btnValidate = document.getElementById('btn-validate');
+const resultsDiv = document.getElementById('results');
+
+// Set version on load
+document.getElementById('version-badge').textContent = 'v' + VERSION;
+
+function updateLineNumbers() {
+  const lines = textarea.value.split('\n').length;
+  lineNumbers.innerHTML = Array.from({ length: lines }, (_, i) =>
+    '<div>' + (i + 1) + '</div>'
+  ).join('');
+}
+
+function syncScroll() {
+  lineNumbers.scrollTop = textarea.scrollTop;
+}
+
+textarea.addEventListener('input', updateLineNumbers);
+textarea.addEventListener('scroll', syncScroll);
+updateLineNumbers();
+
+textarea.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    validate();
+    return;
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const val = textarea.value;
+    textarea.value = val.substring(0, start) + '    ' + val.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + 4;
+    updateLineNumbers();
+  }
+});
+
+function validate() {
+  const query = textarea.value.trim();
+  if (!query) { textarea.focus(); return; }
+
+  try {
+    const data = validateQuery(query);
+    renderResults(data);
+  } catch (err) {
+    showError('Validation error: ' + err.message);
+  }
+}
+
+function renderResults(data) {
+  const s = data.summary;
+  let html = '';
+
+  if (s.errors > 0) {
+    html += '<div class="summary-banner fail"><span class="icon">\u2717</span>' +
+      s.errors + ' error' + (s.errors !== 1 ? 's' : '') + ', ' + s.warnings + ' warning' + (s.warnings !== 1 ? 's' : '') + '</div>';
+  } else if (s.warnings > 0) {
+    html += '<div class="summary-banner warn"><span class="icon">\u26A0</span>0 errors, ' +
+      s.warnings + ' warning' + (s.warnings !== 1 ? 's' : '') + '</div>';
+  } else {
+    html += '<div class="summary-banner pass"><span class="icon">\u2713</span>All checks passed</div>';
+  }
+
+  html += '<div class="meta-row">';
+  if (s.nrt_eligible) {
+    html += '<span class="nrt-badge eligible">\u26A1 NRT Eligible</span>';
+  } else {
+    html += '<span class="nrt-badge ineligible">\u26A1 NRT Not Eligible</span>';
+  }
+
+  if (data.primary_table) {
+    html += '<span class="query-info"><strong>Table:</strong> ' + esc(data.primary_table);
+    if (data.source_tables && data.source_tables.length > 1) {
+      html += ' + ' + data.source_tables.slice(1).map(esc).join(', ');
+    }
+    html += '</span>';
+  }
+
+  if (data.projected_columns && data.projected_columns.length > 0) {
+    const cols = data.projected_columns.slice(0, 6).map(esc).join(', ');
+    const more = data.projected_columns.length > 6 ? ' +' + (data.projected_columns.length - 6) + ' more' : '';
+    html += '<span class="query-info"><strong>Columns:</strong> ' + cols + more + '</span>';
+  } else if (data.implicit_columns) {
+    html += '<span class="query-info"><strong>Columns:</strong> all (implicit)</span>';
+  }
+  html += '</div>';
+
+  const grouped = {};
+  for (const r of data.results) {
+    if (!grouped[r.category]) grouped[r.category] = [];
+    grouped[r.category].push(r);
+  }
+
+  for (const cat of CATEGORY_ORDER) {
+    const items = grouped[cat.key];
+    if (!items || items.length === 0) continue;
+    const failCount = items.filter(r => !r.passed && r.severity === 'error').length;
+    const warnCount = items.filter(r => !r.passed && r.severity === 'warning').length;
+    const unavailCount = items.filter(r => !r.passed && r.severity === 'info').length;
+    const passCount = items.filter(r => r.passed).length;
+    const hasFailures = failCount > 0 || warnCount > 0;
+    const openAttr = hasFailures ? ' open' : '';
+
+    let badgeClass, badgeText;
+    if (failCount > 0) {
+      badgeClass = 'has-fail';
+      badgeText = failCount + ' error' + (failCount !== 1 ? 's' : '');
+      if (warnCount > 0) badgeText += ', ' + warnCount + ' warn';
+    } else if (warnCount > 0) {
+      badgeClass = 'has-warn';
+      badgeText = warnCount + ' warning' + (warnCount !== 1 ? 's' : '');
+    } else if (unavailCount > 0 && passCount > 0) {
+      badgeClass = 'all-pass';
+      badgeText = passCount + ' available';
+    } else if (unavailCount > 0 && passCount === 0) {
+      badgeClass = 'all-pass';
+      badgeText = 'none available';
+    } else {
+      badgeClass = 'all-pass';
+      badgeText = 'all pass';
+    }
+
+    html += '<details class="category-section"' + openAttr + '><summary><span class="category-icon">' + cat.icon + '</span>' +
+      cat.name + '<span class="category-badge ' + badgeClass + '">' + badgeText + '</span></summary><div class="category-content">';
+
+    for (const r of items) {
+      let statusClass, statusIcon;
+      if (r.passed) { statusClass = 'pass'; statusIcon = STATUS_ICONS.pass; }
+      else if (r.severity === 'error') { statusClass = 'fail'; statusIcon = STATUS_ICONS.error; }
+      else if (r.severity === 'warning') { statusClass = 'warn'; statusIcon = STATUS_ICONS.warning; }
+      else if (r.severity === 'info' && !r.passed) { statusClass = 'unavailable'; statusIcon = '\u2013'; }
+      else { statusClass = 'info'; statusIcon = STATUS_ICONS.info; }
+
+      html += '<div class="rule-row"><span class="rule-status ' + statusClass + '">' + statusIcon + '</span>' +
+        '<span class="rule-id">' + esc(r.rule_id) + '</span><div class="rule-body"><div class="rule-message">' + esc(r.message) + '</div>';
+
+      if (r.suggestion) {
+        const lines = r.suggestion.split('\n');
+        if (lines.length > 1 && lines[0].includes(':')) {
+          html += '<div class="rule-permissions">';
+          for (const line of lines) {
+            const idx = line.indexOf(':');
+            if (idx > -1) {
+              html += '<span class="perm-item"><span class="perm-label">' + esc(line.substring(0, idx + 1)) +
+                '</span> <span class="perm-value">' + esc(line.substring(idx + 1).trim()) + '</span></span>';
+            }
+          }
+          html += '</div>';
+        } else {
+          html += '<div class="rule-suggestion">' + esc(r.suggestion) + '</div>';
+        }
+      }
+
+      html += '</div>';
+      if (r.doc_url) {
+        html += '<a class="rule-docs" href="' + esc(r.doc_url) + '" target="_blank" rel="noopener">Docs \u2197</a>';
+      }
+      html += '</div>';
+    }
+    html += '</div></details>';
+  }
+
+  resultsDiv.innerHTML = html;
+  resultsDiv.classList.add('visible');
+}
+
+function showError(message) {
+  resultsDiv.innerHTML = '<div class="error-display">\u26A0 ' + esc(message) + '</div>';
+  resultsDiv.classList.add('visible');
+}
+
+function clearAll() {
+  textarea.value = '';
+  updateLineNumbers();
+  resultsDiv.innerHTML = '';
+  resultsDiv.classList.remove('visible');
+  textarea.focus();
+}
+
+function esc(str) {
+  const el = document.createElement('span');
+  el.textContent = str;
+  return el.innerHTML;
+}
+</script>
+</body>
+</html>
