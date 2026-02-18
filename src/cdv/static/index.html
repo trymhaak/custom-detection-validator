@@ -507,6 +507,34 @@ textarea::placeholder {
   color: var(--text-dim);
   text-align: center;
 }
+
+.privacy-toggle {
+  color: var(--text-dim);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  background: none;
+  border: none;
+  font: inherit;
+  padding: 0;
+}
+.privacy-toggle:hover { color: var(--text-secondary); }
+
+.privacy-details {
+  display: none;
+  margin-top: 10px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.privacy-details.open { display: block; }
+.privacy-details strong { color: var(--text-primary); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -547,7 +575,15 @@ textarea::placeholder {
 
   <!-- Footer -->
   <div class="footer">
-    Bound to 127.0.0.1 (local only) · No data sent externally
+    &#x1f512; Bound to 127.0.0.1 (local only) &middot; No data sent externally &middot;
+    <button class="privacy-toggle" onclick="document.getElementById('privacy-details').classList.toggle('open')">Learn more</button>
+    <div class="privacy-details" id="privacy-details">
+      <strong>How your data is handled</strong><br>
+      This server runs locally on your machine (127.0.0.1) and is not accessible from the network. Your KQL queries
+      are processed by the local Python engine and never leave your machine &mdash; there are no external API calls and
+      no analytics. Nothing is stored persistently. When you stop the server, everything is gone. The complete source
+      code is <a href="https://github.com/trymhaak/custom-detection-validator" style="color:var(--accent)">open source on GitHub</a>.
+    </div>
   </div>
 </div>
 
