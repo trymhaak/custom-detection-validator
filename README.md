@@ -23,7 +23,7 @@ Everything runs in your browser. No data is sent anywhere.
 | Response Actions | ACT001–005 | Device, file, user, and email action availability + RBAC |
 | Best Practices | BP001–005 | Timestamp filtering, ingestion_time, summarize, alert limits |
 
-Covers 55 XDR tables, 20 NRT XDR tables, 19 NRT Sentinel tables, and table-aware action filtering across 12 product categories.
+Covers 61 XDR tables, 20 NRT XDR tables, 19 NRT Sentinel tables, and table-aware action filtering across 12 product categories.
 
 ## CLI usage (optional)
 
@@ -40,6 +40,12 @@ Or without installing:
 PYTHONPATH=src python3 -m cdv.cli -q "DeviceEvents | project Timestamp, DeviceId, ReportId"
 ```
 
+Or pipe the query on stdin:
+
+```bash
+cat query.kql | cdv
+```
+
 Local web server:
 
 ```bash
@@ -51,16 +57,26 @@ cdv --web
 | Flag | Description |
 |------|-------------|
 | `-q`, `--query` | KQL query string to validate |
-| `-f`, `--file` | Read query from file |
+| `-f`, `--file` | Read query from file (cannot be combined with `-q`) |
 | `--json` | Output results as JSON |
 | `--web` | Start local web GUI |
 | `--port` | Port for web server (default: 8471) |
 | `--no-color` | Disable terminal colors |
+| `--verbose` | Show parsed query details for debugging |
+| `-v`, `--version` | Show version and exit |
+
+If neither `-q` nor `-f` is given, the query is read from stdin.
 
 ## Requirements
 
 - Python 3.9+ (CLI only)
 - Zero external dependencies — stdlib only
+
+## Maintainer
+
+Maintained by Trym Håkansson — [trym.cloud/security](https://trym.cloud/security/) · GitHub: [@trymhaak](https://github.com/trymhaak)
+
+To report a security vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## License
 
