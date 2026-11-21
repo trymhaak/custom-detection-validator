@@ -7,10 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-11-21
+### Added
 
-First tagged release. Package metadata (`pyproject.toml`, `src/cdv/__init__.py`)
-and the web version now report `1.0.0`; earlier untagged builds reported `0.2.0`.
+- `SECURITY.md` with vulnerability reporting instructions, a Maintainer section in
+  the README, and this changelog.
+
+### Fixed
+
+- Package metadata (`pyproject.toml`, `src/cdv/__init__.py`) and the web version
+  reported `0.2.0` after the v1.0.0 release. They now report `1.0.0`.
+- LICENSE spells the maintainer's name Trym Håkansson.
+- README: the number of covered Defender XDR tables is 61, not 55.
+- README: the CLI options table now lists `--verbose` and `-v/--version`,
+  documents reading the query from stdin, and notes that `-f` and `-q`
+  cannot be combined.
+
+## [1.0.0] - 2026-07-23
+
+First stable release, tagged on commit `8839c9c` (2026-02-18).
 
 ### Added
 
@@ -54,14 +68,7 @@ and the web version now report `1.0.0`; earlier untagged builds reported `0.2.0`
 - Privacy notice in both web interfaces describing how query data is handled.
 - Test suite (pytest) covering the tokenizer, extractor, table rules, every
   validator, the engine and the web server.
-- MIT license, README, security policy (`SECURITY.md`) and this changelog.
-
-### Fixed
-
-- README: the number of covered Defender XDR tables is 61, not 55.
-- README: the CLI options table now lists `--verbose` and `-v/--version`,
-  documents reading the query from stdin, and notes that `-f` and `-q`
-  cannot be combined.
+- MIT license and README.
 
 [Unreleased]: https://github.com/trymhaak/custom-detection-validator/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/trymhaak/custom-detection-validator/releases/tag/v1.0.0
