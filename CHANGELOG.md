@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Proposed release: **1.0.0**. Not yet tagged or released; the package metadata
-(`pyproject.toml`, `src/cdv/__init__.py`) still reports version `0.2.0`.
+## [1.0.0] - 2026-11-21
+
+First tagged release. Package metadata (`pyproject.toml`, `src/cdv/__init__.py`)
+and the web version now report `1.0.0`; earlier untagged builds reported `0.2.0`.
 
 ### Added
 
@@ -60,3 +62,6 @@ Proposed release: **1.0.0**. Not yet tagged or released; the package metadata
 - README: the CLI options table now lists `--verbose` and `-v/--version`,
   documents reading the query from stdin, and notes that `-f` and `-q`
   cannot be combined.
+
+[Unreleased]: https://github.com/trymhaak/custom-detection-validator/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/trymhaak/custom-detection-validator/releases/tag/v1.0.0
